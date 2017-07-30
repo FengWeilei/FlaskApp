@@ -1,4 +1,4 @@
-from flask import Flask,render_template,request,flash,redirect,url_for
+from flask import Flask,render_template,request,flash,redirect,url_for,session
 from wtforms import StringField, SubmitField,validators, PasswordField
 from flask_wtf import FlaskForm
 from flask_mysqldb import MySQL
@@ -59,6 +59,49 @@ def register():
         return redirect(url_for('index'))
 
     return render_template('register.html',form=form)
+
+@app.route("/login",methods=['GET','POST'])
+def login():
+    if request.method == 'POST':
+        # Get Form Fields
+        username = request.form['username']
+        password_candidate = request.form['password']
+
+        # Create cursor
+        cur = mysql.connection.cursor()
+
+        # Get user by username
+        result = cur.execute(
+            "SELECT * FROM users WHERE username = %s", [username])
+
+        if result > 0:
+            # Get stored hash
+            data = cur.fetchone()
+            password = data['password']
+
+            # Compare Passwords
+            if sha256_crypt.verify(password_candidate, password):
+                # Passed
+                session['logged_in'] = True
+                session['username'] = username
+
+                flash('You are now logged in', 'success')
+                return redirect(url_for('dashboard'))
+            else:
+                error = 'Please check your password.'
+                return render_template('login.html', error=error)
+            # Close connection
+            cur.close()
+        else:
+            error = 'Username not found'
+            return render_template('login.html', error=error)
+
+    return render_template('login.html')
+
+@app.route('/dashboard')
+def dashboard():
+    return render_template("dashboard.html")
+
 
 #CSRF
 #app.config.from_object('config')
