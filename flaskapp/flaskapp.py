@@ -1,9 +1,10 @@
 from flask import Flask,render_template,request,flash,redirect,url_for,session
-from wtforms import StringField, SubmitField,validators, PasswordField
+from wtforms import StringField, SubmitField,validators, PasswordField, TextAreaField
 from flask_wtf import FlaskForm
 from flask_mysqldb import MySQL
 from passlib.hash import sha256_crypt
 from functools import wraps
+
 
 app = Flask(__name__)
 
@@ -123,18 +124,60 @@ def logout():
     return redirect(url_for('login'))
 
 
-
-
-
 @app.route('/dashboard')
 @is_logged_in
 def dashboard():
-    return render_template("dashboard.html")
+    cur = mysql.connection.cursor()
 
+    result = cur.execute("SELECT * FROM articles")
+
+    articles = cur.fetchall()
+
+    if result > 0:
+        return render_template("dashboard.html",articles=articles)
+
+    else:
+        msg = "No Articles Found"
+        return render_template("dashboard.html")
+
+    cur.close()
+
+    
+class ArticleForm(FlaskForm):
+    title = StringField('Title', [validators.Length(min=1, max=200)])
+    body = TextAreaField('Body', [validators.Length(min=3)])
+
+# Add Article
+
+@app.route('/add_article', methods=['GET', 'POST'])
+@is_logged_in
+def add_article():
+    form = ArticleForm(request.form)
+    if request.method == 'POST' and form.validate_on_submit():
+        title = form.title.data
+        body = form.body.data
+
+        # Create Cursor
+        cur = mysql.connection.cursor()
+
+        # Execute
+        cur.execute("INSERT INTO articles(title, body, author) VALUES(%s, %s, %s)",
+                    (title, body, session['username']))
+
+        # Commit to DB
+        mysql.connection.commit()
+
+        # Close
+        cur.close()
+
+        flash('Article Created', 'success')
+
+        return redirect(url_for('dashboard'))
+    return render_template('add_article.html', form=form)
 
 #CSRF
-app.config.from_object('config')
+#app.config.from_object('config')
 
 if __name__ == "__main__":
-    #app.secret_key="It doesn't matter"
+    app.secret_key="It doesn't matter"
     app.run(debug=True)
