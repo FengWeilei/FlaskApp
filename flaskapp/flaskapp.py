@@ -3,6 +3,7 @@ from wtforms import StringField, SubmitField,validators, PasswordField
 from flask_wtf import FlaskForm
 from flask_mysqldb import MySQL
 from passlib.hash import sha256_crypt
+from functools import wraps
 
 app = Flask(__name__)
 
@@ -60,6 +61,8 @@ def register():
 
     return render_template('register.html',form=form)
 
+
+#User login
 @app.route("/login",methods=['GET','POST'])
 def login():
     if request.method == 'POST':
@@ -98,14 +101,40 @@ def login():
 
     return render_template('login.html')
 
+
+
+def is_logged_in(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        if 'logged_in' in session:
+            return f(*args, **kwargs)
+        else:
+            flash('Unauthorized, Please login', 'danger')
+            return redirect(url_for('login'))
+    return wrap
+
+
+#Logout
+@app.route("/logout")
+@is_logged_in
+def logout():
+    session.clear()
+    flash("You're now logged out.","success")
+    return redirect(url_for('login'))
+
+
+
+
+
 @app.route('/dashboard')
+@is_logged_in
 def dashboard():
     return render_template("dashboard.html")
 
 
 #CSRF
-#app.config.from_object('config')
+app.config.from_object('config')
 
 if __name__ == "__main__":
-    app.secret_key="It doesn't matter"
+    #app.secret_key="It doesn't matter"
     app.run(debug=True)
