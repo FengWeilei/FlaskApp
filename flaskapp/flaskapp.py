@@ -24,6 +24,9 @@ mysql = MySQL(app)
 def index():
 	return render_template("index.html")
 
+@app.route('/about')
+def about():
+    return render_template("index.html")
 
 class RegisterForm(FlaskForm):
     name = StringField('Name', [validators.Length(min=1, max=50)])
@@ -175,9 +178,85 @@ def add_article():
         return redirect(url_for('dashboard'))
     return render_template('add_article.html', form=form)
 
+
+
+@app.route('/articles')
+def articles():
+    # Create cursor
+    cur = mysql.connection.cursor()
+
+    # Get articles
+    result = cur.execute("SELECT * FROM articles")
+
+    articles = cur.fetchall()
+
+    if result > 0:
+        return render_template('articles.html', articles=articles)
+    else:
+        msg = 'No Articles Found'
+        return render_template('articles.html', msg=msg)
+    # Close connection
+    cur.close()
+
+# Single Article
+
+@app.route('/article/<string:id>/')
+def article(id):
+    cur = mysql.connection.cursor()
+    result = cur.execute("SELECT * FROM articles WHERE id = %s", [id])
+    article = cur.fetchone()
+    return render_template('article.html', article=article)
+
+
+
+@app.route('/edit_article/<string:id>', methods=['GET', 'POST'])
+@is_logged_in
+def edit_article(id):
+    # Create cursor
+    cur = mysql.connection.cursor()
+
+    # Get article by id
+    result = cur.execute("SELECT * FROM articles WHERE id = %s", [id])
+    article = cur.fetchone()
+    cur.close()
+
+    # Get form
+    form = ArticleForm(request.form)
+
+    # Populate article form mysql
+    form.title.data = article['title']
+    form.body.data = article['body']
+
+    if request.method == 'POST' and form.validate_on_submit():
+        title = request.form['title']
+        body = request.form['body']
+
+        cur = mysql.connection.cursor()
+        cur.execute(
+            "UPDATE articles SET title=%s, body=%s WHERE id= %s", (title, body, id))
+        mysql.connection.commit()
+        cur.close()
+
+        flash('Article Updated', 'success')
+
+        return redirect(url_for('dashboard'))
+    return render_template('edit_article.html', form=form)
+
+
+# Delete Article
+@app.route('/delete_article/<string:id>', methods=["POST"])
+@is_logged_in
+def delete_article(id):
+    cur = mysql.connection.cursor()
+    cur.execute("DELETE FROM articles WHERE id=%s", [id])
+    mysql.connection.commit()
+    cur.close()
+    flash('Article Deleted', 'success')
+    return redirect(url_for('dashboard'))
+
 #CSRF
-#app.config.from_object('config')
+app.config.from_object('config')
 
 if __name__ == "__main__":
-    app.secret_key="It doesn't matter"
+    #app.secret_key="It doesn't matter"
     app.run(debug=True)
