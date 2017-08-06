@@ -1,5 +1,4 @@
-# FlaskApp
-webapp based on python flask framework
+# webapp based on python flask framework
 
 1 app = Flask(__name__)  #实例化Flask类，传入name参数
 
